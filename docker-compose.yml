@@ -1,0 +1,50 @@
+# Full docker-compose.yml definition
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            # Native Windows Docker Desktop GPU passthrough
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - ai_network
+
+  openclaw:
+    build: 
+      context: ./openclaw
+      dockerfile: Dockerfile
+    container_name: openclaw
+    restart: unless-stopped
+    ports:
+      - "18789:18789" # OpenClaw Web UI & Gateway
+    shm_size: "2gb"
+    volumes:
+      # Mount configuration and working directories explicitly
+      - ./openclaw/config:/home/node/.openclaw
+      - ./openclaw/workspace:/home/node/workspace
+      - ./openclaw/logs:/home/node/.openclaw/logs
+    environment:
+      # Point OpenClaw to the internal Docker network Ollama instance
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+    networks:
+      - ai_network
+
+networks:
+  ai_network:
+    driver: bridge
+
+volumes:
+  ollama_data:
+  
